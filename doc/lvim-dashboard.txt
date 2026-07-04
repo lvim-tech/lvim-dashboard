@@ -1,0 +1,85 @@
+*lvim-dashboard.txt*                       The start dashboard of the lvim-tech set
+
+==============================================================================
+CONTENTS                                                 *lvim-dashboard-contents*
+
+    1. Introduction ......................... |lvim-dashboard-introduction|
+    2. Requirements ......................... |lvim-dashboard-requirements|
+    3. Installation ......................... |lvim-dashboard-installation|
+    4. Usage ................................ |lvim-dashboard-usage|
+    5. Sections ............................. |lvim-dashboard-sections|
+    6. Configuration ........................ |lvim-dashboard-configuration|
+
+==============================================================================
+1. INTRODUCTION                                      *lvim-dashboard-introduction*
+
+lvim-dashboard is a declarative, section-based START DASHBOARD — a greeter buffer
+shown on an empty startup (or on demand). It ships the render ENGINE only; the
+content (banner, menu, panes) is yours, defined as a `sections` tree of item
+tables, generator functions, or references to the built-in sections. Actions that
+open a finder go through lvim-picker.
+
+A single, idempotent teardown lifecycle (one autocmd group, deleted once) keeps
+it crash-free; the `LvimUiDashboard*` highlight groups self-theme from the live
+palette.
+
+==============================================================================
+2. REQUIREMENTS                                      *lvim-dashboard-requirements*
+
+- Neovim >= 0.12.x
+- lvim-utils (base)
+- lvim-picker (the built-in `pick` actions open its finders)
+
+==============================================================================
+3. INSTALLATION                                      *lvim-dashboard-installation*
+
+lvim-installer (recommended): >vim
+    :LvimInstaller plugins
+<
+Native (vim.pack): >lua
+    vim.pack.add({
+        { src = "https://github.com/lvim-tech/lvim-utils" },
+        { src = "https://github.com/lvim-tech/lvim-ui" },
+        { src = "https://github.com/lvim-tech/lvim-picker" },
+        { src = "https://github.com/lvim-tech/lvim-dashboard" },
+    })
+    require("lvim-dashboard").setup({ enable = true })
+<
+==============================================================================
+4. USAGE                                                    *lvim-dashboard-usage*
+
+setup() merges your options and, when `enable = true`, registers `:LvimDashboard`
+and (with `auto_open`) the empty-startup auto-open. Define your `preset` (banner +
+menu) and/or `sections`. >vim
+    :LvimDashboard              " open the dashboard
+    :LvimDashboard pick files   " open a finder source directly
+<
+==============================================================================
+5. SECTIONS                                              *lvim-dashboard-sections*
+
+The `sections` list is rendered top to bottom. Each entry is one of:
+- an item TABLE — { text / icon / key / desc / title / action / pane / align /
+  indent / padding / gap / hl / label / file / header / footer / enabled /
+  autokey / hidden };
+- a generator FUNCTION `fun(self)` returning item(s);
+- `{ section = "<name>", … }` referencing a built-in generator: `header`,
+  `keys`, `recent_files`, `projects`, `startup`, `session`.
+
+The built-in `keys` / `header` sections pull from `preset.keys` / `preset.header`;
+`pick`-type key actions use `preset.pick` (default: lvim-picker). `pane` groups
+items into side-by-side columns.
+
+==============================================================================
+6. CONFIGURATION                                    *lvim-dashboard-configuration*
+
+                                                         *lvim-dashboard.setup()*
+require("lvim-dashboard").setup({opts})
+
+Merges {opts} into the live config in place (LIST values like `sections` /
+`preset.keys` REPLACE wholesale) and, when enabled, registers `:LvimDashboard`.
+See the README for the FULL default config; the option set is documented as
+`LvimDashboardConfig` in `lua/lvim-dashboard/config.lua` (enable, auto_open,
+should_open, hide_cursor, width, panes, autokeys, preset, sections, formats,
+icons, hl, bo, wo, debug).
+
+vim:tw=78:ts=8:ft=help:norl:
