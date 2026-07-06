@@ -22,6 +22,7 @@
 ---@field formats     table    Per-field formatters (icon / header / footer / file → styled text)
 ---@field icons       table    Fallback leading glyphs for file/directory items with no provider icon
 ---@field icon_provider "auto"|"lvim"|"devicons"|"mini"  Which plugin supplies file icons (via lvim-utils.icons)
+---@field icon_color_mode string?  lvim-icons colour mode for file icons: "theme"|"brand"|"theme_brand"; nil = the lvim-icons global default
 ---@field hl          table    Highlight groups for every element (all default to the LvimUiDashboard* groups)
 ---@field bo          table    The dashboard buffer options (a clean, chrome-free scratch buffer)
 ---@field wo          table    The dashboard window options
@@ -104,6 +105,9 @@ return {
     -- Which icon plugin supplies per-file-type glyphs (resolved through lvim-utils.icons):
     -- "auto" prefers lvim-icons, then nvim-web-devicons, then mini.icons, else the fallback glyphs below.
     icon_provider = "auto",
+    -- lvim-icons colour mode for file icons (ignored by devicons/mini): "theme" follows the
+    -- colorscheme, "brand" the real brand hue, "theme_brand" a mix. nil = lvim-icons' own default.
+    icon_color_mode = nil,
     -- Leading glyphs the render engine falls back to for `file` items resolving to "file"/"directory"
     -- when the active provider has no specific icon. Real Nerd glyphs.
     icons = {

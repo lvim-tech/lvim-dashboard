@@ -115,7 +115,7 @@ local function devicon(self, file, kind)
     if kind == "directory" then
         return { icons.directory .. " ", hl = rhl(self, "icon") }
     end
-    local r = iconlib.get(file, { provider = config.icon_provider })
+    local r = iconlib.get(file, { provider = config.icon_provider, color_mode = config.icon_color_mode })
     if r.glyph and r.glyph ~= "" then
         return { r.glyph .. " ", hl = r.hl ~= "" and r.hl or rhl(self, "icon") }
     end
