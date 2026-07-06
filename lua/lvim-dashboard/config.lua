@@ -20,7 +20,8 @@
 ---@field preset      table    Shared building blocks the built-in sections pull from (pick / keys / header)
 ---@field sections    table    The sections rendered top to bottom (item tables / generators / built-in refs)
 ---@field formats     table    Per-field formatters (icon / header / footer / file → styled text)
----@field icons       table    Fallback leading glyphs for file/directory items with no devicon
+---@field icons       table    Fallback leading glyphs for file/directory items with no provider icon
+---@field icon_provider "auto"|"lvim"|"devicons"|"mini"  Which plugin supplies file icons (via lvim-utils.icons)
 ---@field hl          table    Highlight groups for every element (all default to the LvimUiDashboard* groups)
 ---@field bo          table    The dashboard buffer options (a clean, chrome-free scratch buffer)
 ---@field wo          table    The dashboard window options
@@ -100,8 +101,11 @@ return {
 
     -- Highlight groups for every element — all overridable, all default to the self-themed LvimUiDashboard*
     -- groups (registered in config/highlight.lua, derived from the live palette).
+    -- Which icon plugin supplies per-file-type glyphs (resolved through lvim-utils.icons):
+    -- "auto" prefers lvim-icons, then nvim-web-devicons, then mini.icons, else the fallback glyphs below.
+    icon_provider = "auto",
     -- Leading glyphs the render engine falls back to for `file` items resolving to "file"/"directory"
-    -- when nvim-web-devicons has no specific icon. Real Nerd glyphs.
+    -- when the active provider has no specific icon. Real Nerd glyphs.
     icons = {
         file = "", -- nf-fa-file
         directory = "", -- nf-fa-folder

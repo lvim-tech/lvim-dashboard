@@ -15,6 +15,7 @@
 local api = vim.api
 local config = require("lvim-dashboard.config")
 local sections = require("lvim-dashboard.sections")
+local iconlib = require("lvim-utils.icons")
 
 local M = {}
 
@@ -114,13 +115,9 @@ local function devicon(self, file, kind)
     if kind == "directory" then
         return { icons.directory .. " ", hl = rhl(self, "icon") }
     end
-    local ok, dev = pcall(require, "nvim-web-devicons")
-    if ok then
-        local tail = vim.fn.fnamemodify(file, ":t")
-        local glyph, hl = dev.get_icon(tail, vim.fn.fnamemodify(tail, ":e"), { default = true })
-        if glyph then
-            return { glyph .. " ", hl = hl }
-        end
+    local r = iconlib.get(file, { provider = config.icon_provider })
+    if r.glyph and r.glyph ~= "" then
+        return { r.glyph .. " ", hl = r.hl ~= "" and r.hl or rhl(self, "icon") }
     end
     return { icons.file .. " ", hl = rhl(self, "icon") }
 end

@@ -15,6 +15,7 @@ local api = vim.api
 local render = require("lvim-dashboard.render")
 local config = require("lvim-dashboard.config")
 local merge = require("lvim-utils.utils").merge
+local iconlib = require("lvim-utils.icons")
 
 local M = {}
 
@@ -98,13 +99,12 @@ function D:window_shrunk()
         and api.nvim_win_get_height(self.win) < self._size.height
 end
 
---- The dashboard auto-opens early — before the lazy nvim-web-devicons has initialised — so file rows first
---- paint with the generic fallback glyph. Poll briefly and re-paint ONCE devicons is ready, upgrading them to
---- per-file-type icons. Stops on the first success, after ~1s, or when the dashboard closes / a finder opens.
+--- The dashboard auto-opens early — potentially before lvim-icons has initialised — so file rows first
+--- paint with the generic fallback glyph. Poll briefly and re-paint ONCE lvim-icons is ready, upgrading them
+--- to per-file-type icons. Stops on the first success, after ~1s, or when the dashboard closes / a finder opens.
 function D:upgrade_icons()
     local function ready()
-        local ok, dev = pcall(require, "nvim-web-devicons")
-        return ok and dev.get_icon("init.lua", "lua", { default = false }) ~= nil
+        return iconlib.get("init.lua", { provider = config.icon_provider }).name ~= "default"
     end
     if ready() then
         return
