@@ -330,15 +330,49 @@ function D:select(restore)
     end
 end
 
---- Re-resolve, assign keys, paint, and (re)wire the keymaps + cursor. Called on open, on resize, and when the
---- window is re-entered (e.g. returning after an action opened a finder in the area).
+--- Re-acquire OUR window from the BUFFER — the window actually showing our buffer is the source of truth. A
+--- split / side panel opening can leave `self.win` pointing at the wrong window id (e.g. a new empty split); an
+--- out-of-band `:noautocmd` window close can leave it pointing at a gone window. Prefer a NORMAL (non-floating)
+--- window. Returns false when no valid window shows the buffer.
+---@return boolean
+function D:refind_win()
+    local wins = self.buf and vim.fn.win_findbuf(self.buf) or {}
+    for _, w in ipairs(wins) do
+        if api.nvim_win_get_config(w).relative == "" then
+            self.win = w
+            break
+        end
+    end
+    return self.win ~= nil and api.nvim_win_is_valid(self.win)
+end
+
+--- Resolve the section tree into the flat item list + assign auto-keys — ONCE per open. Resizing changes only
+--- the LAYOUT, not the content, so the data pipeline (an fs_stat over all of v:oldfiles, a per-file git-root
+--- walk-to-/) must NOT re-run on every resize event; D:update reuses the cached `self.items`. A re-open is a
+--- fresh instance, so the cache is naturally invalidated.
+function D:resolve()
+    self.opts = cfg()
+    -- resolve() writes decorate's nil-ing, the autokey assignment and the `_row`/`_hl`/`_pane` scratch fields
+    -- into its argument tree — deep-copy the config sections so the live config is never mutated.
+    self.items = render.resolve(self, vim.deepcopy(self.opts.sections))
+    self:assign_keys()
+end
+
+--- (Re)paint the resolved items + (re)wire the keymaps + cursor. Called on open, on resize, and when the window
+--- is re-entered (e.g. returning after an action opened a finder in the area). The content is resolved ONCE
+--- (D:resolve, cached in `self.items`); a resize only re-lays-out + repaints against that cache.
 function D:update()
     if self.closed or not (self.buf and api.nvim_buf_is_valid(self.buf)) then
         return
     end
-    self.opts = cfg()
-    self.items = render.resolve(self, vim.deepcopy(self.opts.sections))
-    self:assign_keys()
+    -- the window can be gone (an out-of-band close) while the buffer lingers — re-derive it and bail if none, so
+    -- paint never reads geometry off a stale window id (the devicon-upgrade timer path reaches here directly).
+    if not self:refind_win() then
+        return
+    end
+    if not self.items then
+        self:resolve()
+    end
     render.paint(self)
     self:map_keys()
     -- keep the logical selection (pane + item index) across re-paints — restore by INDEX, not by the (now
@@ -422,17 +456,9 @@ function D:init()
         if self.closed then
             return
         end
-        -- Re-derive OUR window from the BUFFER. A split / side panel opening can leave self.win pointing at the
-        -- wrong window id (e.g. the new empty split), which would paint the greeter at that window's width. The
-        -- window actually showing our buffer is the source of truth.
-        local wins = self.buf and vim.fn.win_findbuf(self.buf) or {}
-        for _, w in ipairs(wins) do
-            if api.nvim_win_get_config(w).relative == "" then
-                self.win = w
-                break
-            end
-        end
-        if not (self.win and api.nvim_win_is_valid(self.win)) then
+        -- Re-derive OUR window from the BUFFER (the window actually showing our buffer is the source of truth: a
+        -- split / side panel opening can leave self.win pointing at the wrong window id). Bail if none shows it.
+        if not self:refind_win() then
             return
         end
         if self._acting then
@@ -662,14 +688,23 @@ function M.setup(opts)
         end
     end, {
         nargs = "*",
+        -- Position-aware completion: the subcommands (`open` / `pick`) at argument 1, the pick SOURCES right
+        -- after `pick`, and nothing past that (the pick cwd is free-form). `parts` is
+        -- { "LvimDashboard", <arg1>, <arg2>, … } — split on whitespace so the current argument index is known.
         complete = function(lead)
             local parts = vim.split(vim.fn.getcmdline(), "%s+")
-            if #parts > 2 and parts[2] == "pick" then
-                return {}
+            local function match(candidates)
+                return vim.tbl_filter(function(s)
+                    return s:find(lead, 1, true) == 1
+                end, candidates)
             end
-            return vim.tbl_filter(function(s)
-                return s:find(lead, 1, true) == 1
-            end, { "open", "pick" })
+            if parts[2] == "pick" and #parts >= 3 then
+                return (#parts == 3) and match({ "files", "oldfiles", "grep", "live_grep" }) or {}
+            end
+            if #parts <= 2 then
+                return match({ "open", "pick" })
+            end
+            return {}
         end,
         desc = "LvimDashboard — open the start dashboard (:LvimDashboard [open|pick <source>])",
     })

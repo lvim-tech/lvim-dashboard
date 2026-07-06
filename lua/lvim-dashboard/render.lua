@@ -491,20 +491,32 @@ function M.paint(self)
     local win_w = api.nvim_win_get_width(self.win)
     local win_h = api.nvim_win_get_height(self.win)
 
-    -- Effective pane width. Normally the configured `width`; but when the sections have COLLAPSED into one
-    -- stacked column (a narrow window), shrink it to the widest natural row so the single column centres
-    -- TIGHTLY — otherwise the short / left-aligned rows hug the left edge of a full-width block and the whole
-    -- thing reads as left-aligned. Applied through an opts PROXY so the live config table is never mutated.
+    -- Effective pane width. Start from the configured `width`, then WIDEN it to the widest natural row so a
+    -- header / banner / long row wider than `width` is not overflowed off-centre (it would spill past the pane
+    -- and shift a beside-pane). When the sections have COLLAPSED into one stacked column (a narrow window),
+    -- SHRINK to the content instead so the single column centres TIGHTLY — otherwise the short / left-aligned
+    -- rows hug the left edge of a full-width block and the whole thing reads as left-aligned. Either way, clamp
+    -- so all panes still fit the window. Applied through an opts PROXY so the live config table is never mutated.
     local real_opts = self.opts
-    local W = self.opts.width
-    if self._collapsed and self.panes[1] then
-        local eff = 1
-        for _, item in ipairs(self.panes[1]) do
-            eff = math.max(eff, natural_width(self, item))
+    local widest = 1
+    for _, pane in ipairs(self.panes) do
+        for _, item in ipairs(pane) do
+            widest = math.max(widest, natural_width(self, item))
         end
+    end
+    local W = self.opts.width
+    if self._collapsed then
         -- +2 breathing room so a right-aligned key/number never touches the content (the path shortening makes
         -- the natural width measured at the full width differ slightly from the re-shortened path at `eff`).
-        W = math.max(1, math.min(eff + 2, win_w))
+        W = widest + 2
+    else
+        W = math.max(W, widest)
+    end
+    -- clamp so #panes columns + the inter-pane gaps still fit the window
+    local n_panes = math.max(1, #self.panes)
+    local max_W = math.max(1, math.floor((win_w - (n_panes - 1) * gap) / n_panes))
+    W = math.max(1, math.min(W, max_W))
+    if W ~= real_opts.width then
         self.opts = setmetatable({ width = W }, { __index = real_opts })
     end
 
