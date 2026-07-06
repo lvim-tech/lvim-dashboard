@@ -6,7 +6,7 @@
 --
 ---@module "lvim-dashboard.sections"
 
-local uv = vim.uv or vim.loop
+local uv = vim.uv
 local M = {}
 
 -- ─── shared data sources ──────────────────────────────────────────────────────
@@ -59,8 +59,15 @@ end
 ---@param name string
 ---@return boolean
 local function have_plugin(name)
+    local mod = name:gsub("%-", "_")
+    if package.loaded[mod] or #vim.api.nvim_get_runtime_file("lua/" .. mod:gsub("%.", "/") .. ".lua", false) > 0 then
+        return true
+    end
+    if #vim.api.nvim_get_runtime_file("lua/" .. mod:gsub("%.", "/") .. "/init.lua", false) > 0 then
+        return true
+    end
     for _, p in ipairs(vim.api.nvim_list_runtime_paths()) do
-        if p:find(name, 1, true) then
+        if vim.fn.fnamemodify(p, ":t") == name then
             return true
         end
     end
@@ -100,7 +107,8 @@ function M.recent_files(item)
         local root = opts.cwd and vim.fs.normalize(opts.cwd == true and vim.fn.getcwd() or opts.cwd) or nil
         local out = {}
         for f in oldfiles({ filter = opts.filter }) do
-            if not root or vim.fs.normalize(f):sub(1, #root) == root then
+            local nf = vim.fs.normalize(f)
+            if not root or nf == root or nf:sub(1, #root + 1) == root .. "/" then
                 out[#out + 1] = {
                     file = f,
                     icon = "file",

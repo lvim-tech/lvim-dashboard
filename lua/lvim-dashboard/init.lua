@@ -109,7 +109,7 @@ function D:upgrade_icons()
     if ready() then
         return
     end
-    local timer = (vim.uv or vim.loop).new_timer()
+    local timer = vim.uv.new_timer()
     local tries = 0
     local done = false -- the REPEATING timer + `vim.schedule_wrap` can queue several ticks before one closes
     -- the handle; `done` makes the stop+close run exactly once so a later queued tick can't double-close it.
@@ -166,53 +166,60 @@ end
 --- Install the buffer keymaps: each item's `key` → its action, plus `<CR>` on the item under the cursor and
 --- `q` to close.
 function D:map_keys()
+    for _, lhs in ipairs(self._mapped_keys or {}) do
+        pcall(vim.keymap.del, "n", lhs, { buffer = self.buf })
+    end
+    self._mapped_keys = {}
+    local function map(lhs, rhs, opts)
+        vim.keymap.set("n", lhs, rhs, vim.tbl_extend("force", opts or {}, { buffer = self.buf }))
+        self._mapped_keys[#self._mapped_keys + 1] = lhs
+    end
     for _, it in ipairs(self.items) do
         if it.key and it.action then
             local act = it.action
-            vim.keymap.set("n", it.key, function()
+            map(it.key, function()
                 self:action(act)
             end, {
-                buffer = self.buf,
                 nowait = true,
                 silent = true,
                 desc = "Dashboard: " .. (it.desc or it.key),
             })
         end
     end
-    vim.keymap.set("n", "<CR>", function()
+    map("<CR>", function()
         local it = self:actionables(self._cur_pane or 1)[self._cur_idx or 1]
         if it and it.action then
             return self:action(it.action)
         end
-    end, { buffer = self.buf, nowait = true, silent = true })
+    end, { nowait = true, silent = true })
     -- j/k (and ↓/↑) step between the CLICKABLE rows of the current pane — skipping every blank / banner /
     -- title / meta line; h/l (and ←/→) move between the side-by-side panes. All land only on real items.
     for _, lhs in ipairs({ "j", "<Down>" }) do
-        vim.keymap.set("n", lhs, function()
+        map(lhs, function()
             self:nav(1)
-        end, { buffer = self.buf, nowait = true, silent = true })
+        end, { nowait = true, silent = true })
     end
     for _, lhs in ipairs({ "k", "<Up>" }) do
-        vim.keymap.set("n", lhs, function()
+        map(lhs, function()
             self:nav(-1)
-        end, { buffer = self.buf, nowait = true, silent = true })
+        end, { nowait = true, silent = true })
     end
     for _, lhs in ipairs({ "l", "<Right>" }) do
-        vim.keymap.set("n", lhs, function()
+        map(lhs, function()
             self:switch_pane(1)
-        end, { buffer = self.buf, nowait = true, silent = true })
+        end, { nowait = true, silent = true })
     end
     for _, lhs in ipairs({ "h", "<Left>" }) do
-        vim.keymap.set("n", lhs, function()
+        map(lhs, function()
             self:switch_pane(-1)
-        end, { buffer = self.buf, nowait = true, silent = true })
+        end, { nowait = true, silent = true })
     end
-    vim.keymap.set("n", "q", function()
+    map("q", function()
         self:close()
         if self.buf and api.nvim_buf_is_valid(self.buf) then
             pcall(api.nvim_buf_delete, self.buf, { force = true })
         end
-    end, { buffer = self.buf, nowait = true, silent = true })
+    end, { nowait = true, silent = true })
 end
 
 --- The actionable items (have an `action` + an on-screen row), sorted top to bottom — optionally restricted
@@ -330,7 +337,7 @@ function D:update()
         return
     end
     self.opts = cfg()
-    self.items = render.resolve(self, self.opts.sections)
+    self.items = render.resolve(self, vim.deepcopy(self.opts.sections))
     self:assign_keys()
     render.paint(self)
     self:map_keys()
@@ -395,7 +402,9 @@ function D:set_options()
         self._saved_wo = {}
         for k, v in pairs(self.opts.wo or {}) do
             local ok, cur = pcall(api.nvim_get_option_value, k, { win = self.win })
-            self._saved_wo[k] = ok and cur or nil
+            if ok then
+                self._saved_wo[k] = cur
+            end
             pcall(api.nvim_set_option_value, k, v, { win = self.win })
         end
         self._saved_winhl = vim.wo[self.win].winhighlight
@@ -654,6 +663,10 @@ function M.setup(opts)
     end, {
         nargs = "*",
         complete = function(lead)
+            local parts = vim.split(vim.fn.getcmdline(), "%s+")
+            if #parts > 2 and parts[2] == "pick" then
+                return {}
+            end
             return vim.tbl_filter(function(s)
                 return s:find(lead, 1, true) == 1
             end, { "open", "pick" })
