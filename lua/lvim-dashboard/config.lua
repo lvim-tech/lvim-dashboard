@@ -17,6 +17,7 @@
 ---@field col         integer|nil Fixed horizontal position (cols); nil = centred
 ---@field pane_gap    integer  Empty columns between side-by-side panes
 ---@field autokeys    string   The pool of keys auto-assigned to items asking for one (autokey = true)
+---@field section_limit integer Default row count for the built-in recent-files / projects sections (per-section `limit` overrides)
 ---@field preset      table    Shared building blocks the built-in sections pull from (pick / keys / header)
 ---@field sections    table    The sections rendered top to bottom (item tables / generators / built-in refs)
 ---@field formats     table    Per-field formatters (icon / header / footer / file → styled text)
@@ -60,6 +61,10 @@ return {
     -- The pool of keys auto-assigned (in order) to items that ask for one (`autokey = true`, e.g. each recent
     -- file / project row), skipping the reserved nav keys (h/j/k/l/q) and any key already taken explicitly.
     autokeys = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
+
+    -- Default number of rows the built-in recent-files / projects sections show. A per-section `limit`
+    -- (in that section's item spec) overrides it.
+    section_limit = 5,
 
     -- Shared building blocks the built-in sections pull from — DEFINE THESE IN YOUR CONFIG. Like the chrome
     -- components, this module ships the ENGINE only; the CONTENT (the menu, the banner) is yours, so the

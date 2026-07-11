@@ -7,6 +7,7 @@
 ---@module "lvim-dashboard.sections"
 
 local uv = vim.uv
+local config = require("lvim-dashboard.config")
 local M = {}
 
 -- ─── shared data sources ──────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ end
 function M.recent_files(item)
     return function()
         local opts = item or {}
-        local limit = opts.limit or 5
+        local limit = opts.limit or config.section_limit
         local root = opts.cwd and vim.fs.normalize(opts.cwd == true and vim.fn.getcwd() or opts.cwd) or nil
         local out = {}
         for f in oldfiles({ filter = opts.filter }) do
@@ -131,7 +132,7 @@ end
 function M.projects(item)
     return function()
         local opts = item or {}
-        local limit = opts.limit or 5
+        local limit = opts.limit or config.section_limit
         local out, seen = {}, {}
         local function add(dir)
             dir = vim.fs.normalize(dir)
