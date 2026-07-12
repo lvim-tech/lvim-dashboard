@@ -220,6 +220,41 @@ function D:map_keys()
             pcall(api.nvim_buf_delete, self.buf, { force = true })
         end
     end, { nowait = true, silent = true })
+    -- MOUSE: a left-click on an item row selects it and runs its action — exactly what <CR> does on the
+    -- focused row. The rendered items carry `_row` (0-based) + `_hl` (the byte span of the clickable cell) +
+    -- `_pane`, so the click is hit-tested to the RIGHT pane on a shared row and never fires off an item.
+    map("<LeftMouse>", function()
+        if vim.o.mouse == "" then
+            return
+        end
+        local mp = vim.fn.getmousepos()
+        if mp.winid ~= self.win or mp.line < 1 then
+            return
+        end
+        local row0, col0 = mp.line - 1, mp.column - 1
+        local hit
+        for _, it in ipairs(self.items) do
+            if it.action and it._row == row0 and not it.hidden then
+                if it._hl and col0 >= it._hl[1] and col0 < it._hl[2] then
+                    hit = it
+                    break
+                elseif not it._hl then
+                    hit = it
+                end
+            end
+        end
+        if not hit then
+            return
+        end
+        for i, a in ipairs(self:actionables(hit._pane or 1)) do
+            if a == hit then
+                self._cur_pane, self._cur_idx = hit._pane or 1, i
+                break
+            end
+        end
+        self:highlight_item(hit)
+        return self:action(hit.action)
+    end, { nowait = true, silent = true })
 end
 
 --- The actionable items (have an `action` + an on-screen row), sorted top to bottom — optionally restricted
