@@ -161,6 +161,18 @@ function D:assign_keys()
             it.key = pool[n]
         end
     end
+    -- More auto-key items than usable characters: the overflow rows render without a shortcut and
+    -- there is no other signal why. Warn the config author once, naming the shortfall.
+    if n > #pool then
+        vim.notify_once(
+            ("lvim-dashboard: %d auto-key items but only %d free keys in `autokeys` — %d rows have no shortcut; lengthen `autokeys`."):format(
+                n,
+                #pool,
+                n - #pool
+            ),
+            vim.log.levels.WARN
+        )
+    end
 end
 
 --- Install the buffer keymaps: each item's `key` → its action, plus `<CR>` on the item under the cursor and
