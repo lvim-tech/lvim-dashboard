@@ -63,14 +63,24 @@ function D:action(action)
     -- (resizes, window re-stacks) while it owns the screen; re-painting then would re-centre / one-column the
     -- dashboard against that transient geometry. The flag is the reliable signal (focus timing is not).
     self._acting = true
-    if type(action) == "string" then
-        if action:sub(1, 1) == ":" then
-            vim.cmd(action:sub(2))
-        else
-            api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), "m", false)
+    -- A throwing action (`:BadCmd`, an erroring function) would propagate out of the keymap BEFORE the
+    -- unfreeze below is scheduled, stranding the dashboard frozen (no re-paint on resize). Run it under pcall
+    -- so a failure clears the freeze and surfaces the error instead of silently wedging the greeter.
+    local ok, err = pcall(function()
+        if type(action) == "string" then
+            if action:sub(1, 1) == ":" then
+                vim.cmd(action:sub(2))
+            else
+                api.nvim_feedkeys(api.nvim_replace_termcodes(action, true, true, true), "m", false)
+            end
+        elseif type(action) == "function" then
+            action(self)
         end
-    elseif type(action) == "function" then
-        action(self)
+    end)
+    if not ok then
+        self._acting = false
+        vim.notify("lvim-dashboard: action failed: " .. tostring(err), vim.log.levels.ERROR)
+        return
     end
     -- if the action did NOT open anything (dashboard still focused AND full height), there is nothing to wait
     -- for — unfreeze. If a finder opened (focus moved OR our window shrank), stay frozen until it closes.
@@ -186,8 +196,19 @@ function D:map_keys()
         vim.keymap.set("n", lhs, rhs, vim.tbl_extend("force", opts or {}, { buffer = self.buf }))
         self._mapped_keys[#self._mapped_keys + 1] = lhs
     end
+    -- the nav/close keys are wired LAST below and `vim.keymap.set` overwrites, so an explicit item `key` equal
+    -- to one of them would be silently shadowed (never fire). Warn the config author naming the clash.
+    local reserved = { h = true, j = true, k = true, l = true, q = true, ["<CR>"] = true }
     for _, it in ipairs(self.items) do
         if it.key and it.action then
+            if reserved[it.key] then
+                vim.notify_once(
+                    ("lvim-dashboard: item key %q is a reserved nav/close key (h/j/k/l/q/<CR>) and will not fire; pick another."):format(
+                        it.key
+                    ),
+                    vim.log.levels.WARN
+                )
+            end
             local act = it.action
             map(it.key, function()
                 self:action(act)
@@ -240,7 +261,19 @@ function D:map_keys()
             return
         end
         local mp = vim.fn.getmousepos()
-        if mp.winid ~= self.win or mp.line < 1 then
+        -- This buffer-local map fires for EVERY left-click while the dashboard buffer is current — including a
+        -- click aimed at another window (a split/tree/panel beside the greeter). Eating those would trap the
+        -- mouse inside the dashboard, so replicate the default: focus the clicked window at the clicked cell.
+        if mp.winid ~= self.win then
+            if mp.winid ~= 0 and api.nvim_win_is_valid(mp.winid) then
+                pcall(api.nvim_set_current_win, mp.winid)
+                if mp.line >= 1 then
+                    pcall(api.nvim_win_set_cursor, mp.winid, { mp.line, math.max(0, mp.column - 1) })
+                end
+            end
+            return
+        end
+        if mp.line < 1 then
             return
         end
         local row0, col0 = mp.line - 1, mp.column - 1
@@ -384,13 +417,18 @@ end
 ---@return boolean
 function D:refind_win()
     local wins = self.buf and vim.fn.win_findbuf(self.buf) or {}
+    local found
     for _, w in ipairs(wins) do
         if api.nvim_win_get_config(w).relative == "" then
-            self.win = w
+            found = w
             break
         end
     end
-    return self.win ~= nil and api.nvim_win_is_valid(self.win)
+    -- Only a NORMAL window actually SHOWING our buffer may confirm. When none does (the buffer is nowhere, or
+    -- only in floats), keep the old id but report false — so callers bail instead of reading geometry off a
+    -- stale window that has since moved on to a different buffer.
+    self.win = found or self.win
+    return found ~= nil and api.nvim_win_is_valid(found)
 end
 
 --- Resolve the section tree into the flat item list + assign auto-keys — ONCE per open. Resizing changes only

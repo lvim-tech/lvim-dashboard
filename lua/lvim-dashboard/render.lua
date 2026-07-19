@@ -379,6 +379,18 @@ function M.resolve(self, section, out, parent)
         if gen then
             local first = #out + 1
             M.resolve(self, gen(section), out, section)
+            -- A `{ section = "…" }` REFERENCE with no title of its own: decorate() would relocate the spec's
+            -- action/key/label onto an inserted title row and forwards icon/desc to nothing at all — so a keyed
+            -- ref like `{ section = "session", key = "s", desc = "Restore" }` (session returns a bare
+            -- `{ action = … }`) renders a BLANK actionable row. When the generator produced exactly one item and
+            -- there is no title, forward the spec's presentational fields onto that item as defaults.
+            if not section.title and #out == first then
+                for _, f in ipairs({ "icon", "key", "desc", "label", "text", "action" }) do
+                    if out[first][f] == nil then
+                        out[first][f] = section[f]
+                    end
+                end
+            end
             decorate(section, out, first)
         end
         return out
