@@ -7,7 +7,7 @@
 --                clean fix for snacks' double-delete-augroup crash: there is no global monkey-patch — the
 --                buffer-wipe autocmd just calls close(), which no-ops if already closed.
 --   • auto-open on an empty startup (no file args), and `:LvimDashboard [open|pick <finder>]`.
--- Actions that open a finder go through lvim-picker (no fzf-lua/telescope dependency). No snacks code.
+-- Actions that open a finder go through lvim-picker — this plugin depends on no finder of its own.
 --
 ---@module "lvim-dashboard"
 
