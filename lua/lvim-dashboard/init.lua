@@ -120,6 +120,9 @@ function D:upgrade_icons()
         return
     end
     local timer = vim.uv.new_timer()
+    if not timer then
+        return -- no timer handle: the icons simply stay as they are
+    end
     local tries = 0
     local done = false -- the REPEATING timer + `vim.schedule_wrap` can queue several ticks before one closes
     -- the handle; `done` makes the stop+close run exactly once so a later queued tick can't double-close it.
