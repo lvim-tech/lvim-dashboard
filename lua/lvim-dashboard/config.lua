@@ -116,14 +116,15 @@ return {
     -- Leading glyphs the render engine falls back to for `file` items resolving to "file"/"directory"
     -- when the active provider has no specific icon. Real Nerd glyphs.
     icons = {
-        file = "", -- nf-fa-file
-        directory = "", -- nf-fa-folder
+        file = "󰈔", -- nf-md-file
+        directory = "󰉋", -- nf-md-folder
     },
 
     hl = {
         header = "LvimUiDashboardHeader", -- the ASCII banner
         footer = "LvimUiDashboardFooter", -- a footer line
         icon = "LvimUiDashboardIcon", -- a key/file leading glyph
+        dir_icon = "LvimUiDashboardIcon", -- a directory's glyph (the Projects list)
         key = "LvimUiDashboardKey", -- the keyboard shortcut (right side)
         desc = "LvimUiDashboardDesc", -- a key row's description
         title = "LvimUiDashboardTitle", -- a section title ("Recent Files", "Projects")

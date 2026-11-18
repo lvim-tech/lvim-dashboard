@@ -113,7 +113,7 @@ end
 local function devicon(self, file, kind)
     local icons = config.icons
     if kind == "directory" then
-        return { icons.directory .. " ", hl = rhl(self, "icon") }
+        return { icons.directory .. " ", hl = rhl(self, (self.opts.hl or {}).dir_icon and "dir_icon" or "icon") }
     end
     local r = iconlib.get(file, { provider = config.icon_provider, color_mode = config.icon_color_mode })
     if r.glyph and r.glyph ~= "" then
@@ -123,9 +123,10 @@ local function devicon(self, file, kind)
 end
 
 --- A UI glyph chunk (a menu / title icon, `"<glyph> "`) as lvim-icons shows it: in "material" mode the glyph
---- becomes its 2-cell image painted with the image's own group (its fg is the image id). The image is one cell
---- wider than the glyph, so one blank after it is dropped and the row keeps its columns. Any other mode hands
---- the chunk back untouched.
+--- becomes its 2-cell image painted with the image's own group (its fg is the image id). The blank after it is
+--- KEPT: it is the only gap between a section title's icon and its text (dropped, "Recent Files" touched its
+--- icon). Every icon of a list becomes an image the same way, so the rows stay aligned with each other. Any
+--- other mode hands the chunk back untouched.
 ---@param ch table  a chunk `{ str, hl = … }`
 ---@return table
 local function ui_icon_chunk(ch)
@@ -134,13 +135,28 @@ local function ui_icon_chunk(ch)
     if not img then
         return ch
     end
-    if dw(t) > dw(text) and text:sub(-1) == " " then
-        t = t:sub(1, -2)
-    end
     local out = vim.deepcopy(ch)
     out[1] = t
     out.hl = (ch.hl and iconlib.on_bg({ image = true, hl = h }, ch.hl)) or h
     return out
+end
+
+--- Free text (`item.text`) lines with every chunk that is ONE glyph (blanks around it allowed) drawn as its
+--- lvim-icons image in "material" — so an icon a line carries as its own chunk (the footer's bolt, the meta
+--- line's icons) is an image of the same size as the menu's. Chunk hl keys are resolved first.
+---@param self table
+---@param lines table[][]
+---@return table[][]
+local function text_lines(self, lines)
+    for _, ln in ipairs(lines) do
+        for i, ch in ipairs(ln) do
+            ch.hl = rhl(self, ch.hl)
+            if type(ch[1]) == "string" then
+                ln[i] = ui_icon_chunk(ch)
+            end
+        end
+    end
+    return lines
 end
 
 --- A `file` item → a shortened path split into a dimmed DIR chunk + a bright FILE chunk.
@@ -284,13 +300,9 @@ function M.render_item(self, item)
     -- CENTRE: free text, else the first present field
     local lines, align = nil, item.align or "left"
     if item.text ~= nil then
-        lines = to_lines(item.text)
-        -- resolve short hl keys ("special"/"footer"/…) on free-text chunks (the field path resolves its own)
-        for _, ln in ipairs(lines) do
-            for _, ch in ipairs(ln) do
-                ch.hl = rhl(self, ch.hl)
-            end
-        end
+        -- resolve short hl keys ("special"/"footer"/…) on free-text chunks (the field path resolves its own),
+        -- and draw a chunk that is one glyph as its image
+        lines = text_lines(self, to_lines(item.text))
     else
         for _, f in ipairs({ "header", "footer", "title", "desc", "file" }) do
             if item[f] ~= nil then
@@ -501,7 +513,7 @@ local function natural_width(self, item)
     end
     local lines
     if item.text ~= nil then
-        lines = to_lines(item.text)
+        lines = text_lines(self, to_lines(item.text)) -- measured as drawn (an image icon is two cells)
     else
         for _, f in ipairs({ "header", "footer", "title", "desc", "file" }) do
             if item[f] ~= nil then

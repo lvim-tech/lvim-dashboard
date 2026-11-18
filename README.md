@@ -108,8 +108,8 @@ require("lvim-dashboard").setup({
 
     -- Fallback leading glyphs for file/directory items with no devicon.
     icons = {
-        file = "", -- nf-fa-file
-        directory = "", -- nf-fa-folder
+        file = "󰈔", -- nf-md-file
+        directory = "󰉋", -- nf-md-folder
     },
 
     -- Highlight groups for every element (all default to the self-themed LvimUiDashboard* groups).
@@ -117,6 +117,7 @@ require("lvim-dashboard").setup({
         header = "LvimUiDashboardHeader",
         footer = "LvimUiDashboardFooter",
         icon = "LvimUiDashboardIcon",
+        dir_icon = "LvimUiDashboardIcon", -- a directory's glyph (the Projects list)
         key = "LvimUiDashboardKey",
         desc = "LvimUiDashboardDesc",
         title = "LvimUiDashboardTitle",
