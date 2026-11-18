@@ -122,6 +122,27 @@ local function devicon(self, file, kind)
     return { icons.file .. " ", hl = rhl(self, "icon") }
 end
 
+--- A UI glyph chunk (a menu / title icon, `"<glyph> "`) as lvim-icons shows it: in "material" mode the glyph
+--- becomes its 2-cell image painted with the image's own group (its fg is the image id). The image is one cell
+--- wider than the glyph, so one blank after it is dropped and the row keeps its columns. Any other mode hands
+--- the chunk back untouched.
+---@param ch table  a chunk `{ str, hl = … }`
+---@return table
+local function ui_icon_chunk(ch)
+    local text = ch[1]
+    local t, h, img = iconlib.ui_text(text, ch.hl)
+    if not img then
+        return ch
+    end
+    if dw(t) > dw(text) and text:sub(-1) == " " then
+        t = t:sub(1, -2)
+    end
+    local out = vim.deepcopy(ch)
+    out[1] = t
+    out.hl = (ch.hl and iconlib.on_bg({ image = true, hl = h }, ch.hl)) or h
+    return out
+end
+
 --- A `file` item → a shortened path split into a dimmed DIR chunk + a bright FILE chunk.
 ---@param self table
 ---@param item table
@@ -154,13 +175,24 @@ local function format_field(self, item, field)
         return { devicon(self, item.file, val) }, nil
     end
     local fmt = (self.opts.formats or {})[field]
+    local chunks, align
     if type(fmt) == "function" then
-        return norm(fmt(item, { width = self.opts.width })), nil
+        chunks = norm(fmt(item, { width = self.opts.width }))
     elseif type(fmt) == "table" then
         local str = (fmt[1] or "%s"):gsub("%%s", tostring(val))
-        return { { str, hl = rhl(self, fmt.hl or field), width = fmt.width } }, fmt.align
+        chunks, align = { { str, hl = rhl(self, fmt.hl or field), width = fmt.width } }, fmt.align
+    else
+        chunks = { { tostring(val), hl = rhl(self, field) } }
     end
-    return { { tostring(val), hl = rhl(self, field) } }, nil
+    if field == "icon" then
+        -- a literal glyph icon: an image in lvim-icons' "material" mode (unchanged otherwise)
+        local out = {}
+        for i, ch in ipairs(chunks) do
+            out[i] = type(ch[1]) == "string" and ui_icon_chunk(ch) or ch
+        end
+        chunks = out
+    end
+    return chunks, align
 end
 
 -- ─── item → block of rendered lines ───────────────────────────────────────────
