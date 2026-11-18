@@ -583,6 +583,16 @@ function D:init()
             end
         end,
     })
+    -- A live lvim-icons mode switch: paint again, so the menu, title and file icons follow the new mode.
+    api.nvim_create_autocmd("User", {
+        group = self.augroup,
+        pattern = "LvimIconsMode",
+        callback = function()
+            if not self.closed then
+                pcall(self.update, self)
+            end
+        end,
+    })
     -- ONE teardown path: the buffer is `bufhidden=wipe`, so closing the window wipes it → BufWipeout → close().
     api.nvim_create_autocmd({ "BufWipeout", "BufDelete" }, {
         group = self.augroup,
